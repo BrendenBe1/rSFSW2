@@ -122,6 +122,10 @@ checkCompleteness <- FALSE
 # check linked BLAS library before simulation runs
 check.blas <- FALSE
 
+#---CO2 Configuration (only used if CO2 is enabled in experimental/treatment)
+CO2.Years <- c(2004, 2005)
+CO2.RCPs  <- c(85)
+
 #---Load functions (don't forget the C functions!)
 rSWSF <- file.path(dir.code, "R", "2_SWSF_p5of5_Functions_v51.RData")
 if (!file.exists(rSWSF) || !continueAfterAbort) {
@@ -333,6 +337,7 @@ if (( any(actions == "external") || any(actions == "create") || any(actions == "
 	trfile.LookupTranspRegionsFromTable <- "TranspirationRegionsPerSoilLayer.csv"
 	trfile.LookupSnowDensityFromTable <- "MeanMonthlySnowDensities_v2.csv"
 	trfile.LookupVegetationComposition <- "VegetationComposition_MeanMonthly_v5.csv"
+	trfile.CO2 <- "CO2_RCP_Concentrations.csv"
 }
 
 datafile.SWRWinputs_preprocessed <- "SWRuns_InputAll_PreProcessed.RData" # Storage file of input data for repeated access (faster) instead of re-reading from (slower) csv files if flag 'usePreProcessedInput' is TRUE

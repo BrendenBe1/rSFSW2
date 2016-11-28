@@ -12,7 +12,7 @@
 #   > CO2.Years
 #   > CO2.RCPs
 #   > dir.sw.dat
-#   > trfile.CO2
+#   > tr_CO2
 #
 # Output:
 #   > One global variable: CO2.Extracted
@@ -24,9 +24,10 @@
 ####################
 if (interactive()) {
   CO2.Years <- c(2004, 2007, 2490)
-  CO2.RCPs  <- c(85, 45)
-  dir.sw.dat = "C:/Users/Zach/Documents/USGS"
-  trfile.CO2 = "RCP85_MIDYEAR_CONCENTRATIONS.csv"
+  CO2.RCPs  <- c(85)
+  dir.sw.in.tr = "C:/GIT/Soilwat_R_Wrapper_v191/1_Data_SWInput/treatments/LookupCO2"
+  trfile.CO2 = "CO2_RCP_Concentrations.csv"
+  tr_CO2 = read.csv(file.path(dir.sw.in.tr, trfile.CO2),  header = TRUE, stringsAsFactors = FALSE)
 }
 
 #########################
@@ -47,12 +48,6 @@ if (length(CO2.Years) == 0) {
       colnames(CO2.Extracted) <- col_names
       row <- 1
       
-      ##################
-      # Read in CO2 CSV
-      ##################
-      co2_data <- read.csv(file.path(dir.sw.dat, trfile.CO2),  header = TRUE, stringsAsFactors = FALSE)
-      # TODO: Change co2_data to trfile.CO2 when integrating with 4 of 5
-      
       ######################
       # Grab requested data
       ######################
@@ -67,7 +62,6 @@ if (length(CO2.Years) == 0) {
           for (j in RCP_row_nums[i]:end) {
             if (co2_data[j, 1] %in% CO2.Years) {
               # Append this year's data
-              print(co2_data[RCP_row_nums[i], 2])
               CO2.Extracted[row, "RCP"] <- co2_data[RCP_row_nums[i], 2]
               CO2.Extracted[row, 2:ncol(CO2.Extracted)] <- co2_data[j, ]
               row <- row + 1
