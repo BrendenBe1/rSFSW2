@@ -341,7 +341,7 @@ if (usePreProcessedInput && file.exists(file.path(dir.in, datafile.SWRWinputs_pr
 	  temp <- file.path(dir.sw.in.tr, "LookupVegetationComposition", trfile.LookupVegetationComposition)
 	  tr_VegetationComposition <- read.csv(temp, skip = 1, row.names = 1, stringsAsFactors = FALSE)
 	}
-  if (any(create_treatments == "UseCO2Coefficients")) {
+  if (any(create_treatments == "UseCO2Coefficients_Retro" || create_treatments == "UseCO2Coefficients_Future")) {
     temp <- file.path(dir.sw.in.tr, "LookupCO2", trfile.CO2)
     tr_CO2 <- read.csv(temp, skip = 1, row.names = 1, stringsAsFactors = FALSE)
   }

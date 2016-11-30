@@ -12,10 +12,17 @@
 #   > CO2.Years
 #   > CO2.RCPs
 #   > tr_CO2
+#   > create_treatments
 #   > TODO: Add more during integration phase
 #
 # Output:
 #   > One global variable: CO2.Extracted
+#   > Example:
+#       RCP Year       CO2   Multiplier
+#  1    85 2000    368.865   0.986492
+#  2    85 2001   370.4675   0.987774
+#  3    85 2002   372.5225   0.989418
+#  4    85 2003     374.76   0.991208
 ##################################################################
 
 
@@ -23,12 +30,12 @@
 # Create dummy data
 ####################
 if (interactive()) {
-  CO2.Years <- c(seq(2000, 2099))
-  CO2.RCPs  <- c(45)
+  CO2.Years    <- c(seq(2000, 2099))
+  CO2.RCPs     <- c(85)
   dir.sw.in.tr <- "C:/GIT/Soilwat_R_Wrapper_v191/1_Data_SWInput/treatments/LookupCO2"
-  trfile.CO2 <- "CO2_RCP_Concentrations.csv"
-  tr_CO2 <- read.csv(file.path(dir.sw.in.tr, trfile.CO2),  header = TRUE, stringsAsFactors = FALSE)
-  be.quiet <- FALSE
+  trfile.CO2   <- "CO2_RCP_Concentrations.csv"
+  tr_CO2       <- read.csv(file.path(dir.sw.in.tr, trfile.CO2),  header = TRUE, stringsAsFactors = FALSE)
+  be.quiet     <- FALSE
 }
 
 #########################
@@ -61,6 +68,7 @@ input_is_valid <- function() {
 }
 
 if (input_is_valid()) {
+  
   #######################################
   # Create dataframe to hold yearly data
   #######################################
@@ -80,30 +88,32 @@ if (input_is_valid()) {
   ######################
   # Grab requested data
   ######################
-  # Navigate to the given RCPs
-  RCP_row_nums <- which(grepl("RCP", tr_CO2[, 1]))
-  for (i in 1:length(RCP_row_nums)) {
-    # Check if user wanted to use this RCP
-    if (tr_CO2[RCP_row_nums[i], 2] %in% CO2.RCPs) {
-      # Grab every given year for this RCP
-      used_a_RCP <- TRUE
+  RCP_row_nums <- which(grepl("\\<RCP\\>", tr_CO2[, 1]))  # Grab all instances that 'RCP' is mentioned in the first column
+  for (i in 1:length(RCP_row_nums)) {                     # Check each row that 'RCP' was mentioned
+    if (tr_CO2[RCP_row_nums[i], 2] %in% CO2.RCPs) {       # If the value in the second column is in the user's given RCPs, continue
+      used_a_RCP <- TRUE                                  # Record that we found a RCP so that more accurate errors can be shown
       if (i == length(RCP_row_nums)) end <- nrow(tr_CO2)  # Stop at the last row of the CSV
       else end <- RCP_row_nums[i + 1]                     # Stop at the beginning of the next RCP
-      for (j in RCP_row_nums[i]:end) {
-        year <- tr_CO2[j, 1]
-        if (year %in% CO2.Years) {
+      for (j in RCP_row_nums[i]:end) {                    # Go from this RCP to either the next RCP or the end of file
+        year <- tr_CO2[j, 1]                              # Extract the current year
+        if (year %in% CO2.Years) {                        # Check if user wanted to use this year
+          CO2 <- tr_CO2[j, 4]                             # Extract CO2
+          RCP <- tr_CO2[RCP_row_nums[i], 2]               # Extract RCP
           # Append this year's data
-          CO2 <- tr_CO2[j, 4]
-          RCP <- tr_CO2[RCP_row_nums[i], 2]
-          CO2.Extracted[row, "RCP"]        <- RCP
-          CO2.Extracted[row, "Year"]       <- year
-          CO2.Extracted[row, "CO2"]        <- CO2
-          CO2.Extracted[row, "Multiplier"] <- coeff1 * as.numeric(CO2) + coeff2  # Calculate the biomass multiplier
+          CO2.Extracted[row, "RCP"]  <- RCP               
+          CO2.Extracted[row, "Year"] <- year
+          CO2.Extracted[row, "CO2"]  <- CO2
+          # Are we using the multiplier for this year?
+          if ((any(create_treatments == "UseCO2Coefficients_Retro")  && year <= endyr) || 
+              (any(create_treatments == "UseCO2Coefficients_Future") && year >  endyr)) {
+            CO2.Extracted[row, "Multiplier"] <- coeff1 * as.numeric(CO2) + coeff2  # Calculate the biomass multiplier
+          } else CO2.Extracted[row, "Multiplier"] <- 1  # Do not change vegetation data
           row <- row + 1
         }
       }
     }
   }
+  
   #######################
   # Print success/errors
   #######################
