@@ -23,13 +23,19 @@
 #  2    85 2001   370.4675   0.987774
 #  3    85 2002   372.5225   0.989418
 #  4    85 2003     374.76   0.991208
+#
+# Asymptotic Runtime:
+#   > Num of RCPs         = i
+#   > Num of chosen years = j
+#   > Num of years in CSV = k
+#   > ϴ(i*(j+k))
 ##################################################################
 
 
 ####################
 # Create dummy data
 ####################
-if (interactive()) {
+if (FALSE) {
   CO2.Years    <- c(seq(2000, 2099))
   CO2.RCPs     <- c(85)
   dir.sw.in.tr <- "C:/GIT/Soilwat_R_Wrapper_v191/1_Data_SWInput/treatments/LookupCO2"
@@ -72,7 +78,7 @@ if (input_is_valid()) {
   #######################################
   # Create dataframe to hold yearly data
   #######################################
-  col_names               <- c("RCP", "Year", "CO2", "Multiplier") 
+  col_names               <- c("RCP", "Year", "Bio Mult", "Sto Mult") 
   CO2.Extracted           <- data.frame(data.frame(matrix(ncol = length(col_names), nrow = 1)))
   colnames(CO2.Extracted) <- col_names
   row                     <- 1
@@ -81,9 +87,10 @@ if (input_is_valid()) {
   ###############################
   # Grab multiplier coefficients
   ###############################
-  # TODO: Use .in file
-  coeff1 <- 0.0008
-  coeff2 <- 0.6914
+  CO2BioCoeff1 <- swDataFromFiles@prod@CO2Coefficients[1]
+  CO2BioCoeff2 <- swDataFromFiles@prod@CO2Coefficients[2]
+  CO2StoCoeff1 <- swDataFromFiles@prod@CO2Coefficients[3]
+  CO2StoCoeff2 <- swDataFromFiles@prod@CO2Coefficients[4]
   
   ######################
   # Grab requested data
@@ -94,20 +101,41 @@ if (input_is_valid()) {
       used_a_RCP <- TRUE                                  # Record that we found a RCP so that more accurate errors can be shown
       if (i == length(RCP_row_nums)) end <- nrow(tr_CO2)  # Stop at the last row of the CSV
       else end <- RCP_row_nums[i + 1]                     # Stop at the beginning of the next RCP
-      for (j in RCP_row_nums[i]:end) {                    # Go from this RCP to either the next RCP or the end of file
-        year <- tr_CO2[j, 1]                              # Extract the current year
+      
+      ################################
+      # Is a year missing in the CSV?
+      ################################
+      for (j in 1:length(CO2.Years)) {
+        # Yes, set the multipliers to 1 for this RCP
+        if (!(CO2.Years[j] %in% tr_CO2[RCP_row_nums[i]:end, 1]))
+        {
+          CO2.Extracted[row, "RCP"]      <- tr_CO2[RCP_row_nums[i], 2]
+          CO2.Extracted[row, "Year"]     <- CO2.Years[j]
+          CO2.Extracted[row, "Bio Mult"] <- 1
+          CO2.Extracted[row, "Sto Mult"] <- 1
+          row <- row + 1
+        }
+      }
+      
+      # No, estimate the multiplier
+      for (k in RCP_row_nums[i]:end) {                    # Go from this RCP to either the next RCP or the end of file
+        year <- tr_CO2[k, 1]                              # Extract the current year
         if (year %in% CO2.Years) {                        # Check if user wanted to use this year
-          CO2 <- tr_CO2[j, 4]                             # Extract CO2
+          CO2 <- tr_CO2[k, 4]                             # Extract CO2
           RCP <- tr_CO2[RCP_row_nums[i], 2]               # Extract RCP
           # Append this year's data
           CO2.Extracted[row, "RCP"]  <- RCP               
           CO2.Extracted[row, "Year"] <- year
-          CO2.Extracted[row, "CO2"]  <- CO2
           # Are we using the multiplier for this year?
           if ((any(create_treatments == "UseCO2Coefficients_Retro")  && year <= endyr) || 
               (any(create_treatments == "UseCO2Coefficients_Future") && year >  endyr)) {
-            CO2.Extracted[row, "Multiplier"] <- coeff1 * as.numeric(CO2) + coeff2  # Calculate the biomass multiplier
-          } else CO2.Extracted[row, "Multiplier"] <- 1  # Do not change vegetation data
+            CO2.Extracted[row, "Bio Mult"] <- CO2BioCoeff1 * as.numeric(CO2) + CO2BioCoeff2  # Calculate the biomass multiplier
+            CO2.Extracted[row, "Sto Mult"] <- CO2StoCoeff1 * as.numeric(CO2) + CO2StoCoeff2  # Calculate the stomatal conductance multiplier
+          } else {
+            # Do not change vegetation data
+            CO2.Extracted[row, "Bio Mult"] <- 1
+            CO2.Extracted[row, "Sto Mult"] <- 1
+          }
           row <- row + 1
         }
       }

@@ -38,15 +38,15 @@ rm(list=ls(all=TRUE))
 t.overall <- Sys.time()
 be.quiet <- FALSE
 eta.estimate <- interactive()
-print.debug <- interactive()
+print.debug <- TRUE
 debug.warn.level <- sum(c(print.debug, interactive()))
 debug.dump.objects <- interactive()
 
 #------Mode of framework
 minVersionRsoilwat <- "1.1.4"
 minVersion_dbWeather <- "3.1.0"
-use_rcpp <- TRUE
-num_cores <- 2
+use_rcpp <- FALSE
+num_cores <- 1
 parallel_backend <- "snow" #"snow" or "multicore" or "mpi"
 parallel_runs <- !interactive()
 
@@ -64,14 +64,14 @@ url.Rrepos <- "https://cran.us.r-project.org"
 
 #------Set paths to simulation framework folders
 #parent folder of simulation project
-dir.prj <- "~/YOURPROJECT"
+dir.prj <- "C:/GIT/Soilwat_R_Wrapper_v191 - Test/"
 if (interactive()) setwd(dir.prj)
 dir.prj <- dir.big <- getwd()
 dir.code <- dir.prj
 
 
 #parent folder containing external data
-dir.external <- "/Volumes/YOURBIGDATA/SoilWat_SimulationFrameworks/SoilWat_DataSet_External"
+dir.external <- "E:/GIS/Data"
 
 #paths to external subfolder
 dir.ex.weather <- file.path(dir.external,"Weather_Past")#historic weather data. Used with Livneh and Maurer Data and ClimateAtlas and NCEPCFSR data.
@@ -109,10 +109,10 @@ actions <- c("create", "execute", "aggregate", "concatenate")
 #	- it doesn't repeat calls to 'do_OneSite' that are listed in 'runIDs_done'
 continueAfterAbort <- TRUE
 #use preprocessed input data if available
-usePreProcessedInput <- TRUE
+usePreProcessedInput <- FALSE
 #stores for each SoilWat simulation a folder with inputs and outputs if TRUE
-saveRsoilwatInput <- FALSE
-saveRsoilwatOutput <- FALSE
+saveRsoilwatInput <- TRUE
+saveRsoilwatOutput <- TRUE
 #store data in big input files for experimental design x treatment design
 makeInputForExperimentalDesign <- FALSE
 # fields/variables of input data for which to create maps if any(actions == "map_input")
@@ -123,15 +123,15 @@ checkCompleteness <- FALSE
 check.blas <- FALSE
 
 #---CO2 Configuration (only used if CO2 is enabled in experimental/treatment)
-CO2.Years <- c(2004, 2005)
-CO2.RCPs  <- c(85)
+CO2.Years <- list(vector=c(2004, 2005), bool=TRUE)
+CO2.RCPs  <- list(vector=c(85), bool=TRUE)
 
 #---Load functions (don't forget the C functions!)
 rSWSF <- file.path(dir.code, "R", "2_SWSF_p5of5_Functions_v51.RData")
 if (!file.exists(rSWSF) || !continueAfterAbort) {
   exclude_from_R <- c("2_SWSF_p2of5_CreateDB_Tables_v51.R",
     "2_SWSF_p3of5_ExternalDataExtractions_v51.R", "2_SWSF_p4of5_Code_v51.R",
-    "5_Database_Functions.R", "Check_WeatherDatabase.R", "SWSF_cpp_functions.R")
+    "5_Database_Functions.R", "Check_WeatherDatabase.R", "SWSF_cpp_functions.R", "CO2Extract.R")
   temp <- list.files(file.path(dir.code, "R"), pattern = ".r", ignore.case = TRUE,
     full.names = TRUE)
   ntemp <- nchar(temp)
@@ -163,10 +163,10 @@ ensembleCollectSize <- 500 #This value is the chunk size for reads of 'runID' fr
 #Daily weather data: must be one of dailyweather_options; WeatherFolder in MasterInput.csv, treatmentDesign.csv, or experimentalDesign.csv
 # If a run has multiple sources for daily weather, then take the one in the first position of dailyweather_options if availble, if not then second etc.
 #	do not change/remove/add entries; only re-order to set different priorities
-dailyweather_options <- c("DayMet_NorthAmerica", "LookupWeatherFolder", "Maurer2002_NorthAmerica", "NRCan_10km_Canada", "NCEPCFSR_Global")
+dailyweather_options <- c("Maurer2002_NorthAmerica", "LookupWeatherFolder", "DayMet_NorthAmerica", "NRCan_10km_Canada", "NCEPCFSR_Global")
 #Daily weather database
 getCurrentWeatherDataFromDatabase <- TRUE
-getScenarioWeatherDataFromDatabase <- TRUE
+getScenarioWeatherDataFromDatabase <- FALSE
 dbWeatherDataFile <- file.path(dir.big, "1_Data_SWInput", "dbWeatherData.sqlite3")
 createAndPopulateWeatherDatabase <- FALSE #TRUE, will create a new(!) database and populate with current data
 dbW_compression_type <- "gzip" # one of eval(formals(memCompress)[[2]]); this only affects dbWeather if createAndPopulateWeatherDatabase
@@ -243,8 +243,8 @@ opt_climsc_extr <- c(
 
 do.PriorCalculations <- c(
 		"ExtendSoilDatafileToRequestedSoilLayers", 0,
-		"EstimateConstantSoilTemperatureAtUpperAndLowerBoundaryAsMeanAnnualAirTemperature", 1,
-		"EstimateInitialSoilTemperatureForEachSoilLayer", 1,
+		"EstimateConstantSoilTemperatureAtUpperAndLowerBoundaryAsMeanAnnualAirTemperature", 0,
+		"EstimateInitialSoilTemperatureForEachSoilLayer", 0,
 		"CalculateBareSoilEvaporationCoefficientsFromSoilTexture", 1
 )
 
@@ -270,6 +270,10 @@ future_yrs <- matrix(c(c(d <- 40, startyr + d, endyr + d),
 						c(d <- 90, startyr + d, endyr + d - 1)), # most GCMs don't have data for 2100
 					ncol = length(ctemp), byrow = TRUE, dimnames = list(NULL, ctemp))
 rownames(future_yrs) <- make.names(paste0("d", future_yrs[, "delta"], "yrs"), unique = TRUE)
+
+#------CO2 Configuration
+CO2.Years <- c(seq(startyr, endyr))
+CO2.RCPs  <- c(85)
 
 #------Meta-information of input data
 datafile.windspeedAtHeightAboveGround <- 2 #SoilWat requires 2 m, but some datasets are at 10 m, e.g., NCEP/CRSF: this value checks windspeed height and if necessary converts to u2
@@ -325,7 +329,7 @@ if ((any(actions == "external") || any(actions == "create") || any(actions == "e
 	datafile.cloud <- "SWRuns_InputData_cloud_v10.csv"
 	datafile.prod <- "SWRuns_InputData_prod_v10.csv"
 	datafile.siteparam <- "SWRuns_InputData_siteparam_v13.csv"
-	datafile.soils <- "SWRuns_InputData_soils_v11.csv"
+	datafile.soils <- "SWRuns_InputData_soils_WISE_v11.csv"
 	datafile.weathersetup <- "SWRuns_InputData_weathersetup_v10.csv"
 }
 if (( any(actions == "external") || any(actions == "create") || any(actions == "execute") || any(actions == "aggregate")) ) {	#input files in sub-folders ./treatments

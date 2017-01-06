@@ -182,7 +182,6 @@ if (usePreProcessedInput && file.exists(file.path(dir.in, datafile.SWRWinputs_pr
 
   sw_input_soillayers <- tryCatch(swsf_read_csv(file.path(dir.in, datafile.soillayers),
     nrowsClasses = nrowsClasses), error = print)
-
   temp <- tryCatch(swsf_read_inputfile(file.path(dir.in, datafile.treatments),
     nrowsClasses = nrowsClasses), error = print)
   sw_input_treatments_use <- temp[["use"]]
@@ -341,9 +340,9 @@ if (usePreProcessedInput && file.exists(file.path(dir.in, datafile.SWRWinputs_pr
 	  temp <- file.path(dir.sw.in.tr, "LookupVegetationComposition", trfile.LookupVegetationComposition)
 	  tr_VegetationComposition <- read.csv(temp, skip = 1, row.names = 1, stringsAsFactors = FALSE)
 	}
-  if (any(create_treatments == "UseCO2Coefficients_Retro" || create_treatments == "UseCO2Coefficients_Future")) {
+  if (any(create_treatments == "UseCO2Coefficients_Retro") || any(create_treatments == "UseCO2Coefficients_Future")) {
     temp <- file.path(dir.sw.in.tr, "LookupCO2", trfile.CO2)
-    tr_CO2 <- read.csv(temp, skip = 1, row.names = 1, stringsAsFactors = FALSE)
+    tr_CO2 <- read.csv(temp, skip = 1, stringsAsFactors = FALSE)
   }
 
 	#-import regeneration data
@@ -368,7 +367,7 @@ if (usePreProcessedInput && file.exists(file.path(dir.in, datafile.SWRWinputs_pr
 	}
 
   do_check_include <- TRUE
-	save(SWRunInformation, include_YN, labels, sw_input_soillayers, sw_input_treatments_use, sw_input_treatments, sw_input_experimentals_use, sw_input_experimentals, create_experimentals, create_treatments, sw_input_cloud_use, sw_input_cloud, sw_input_prod_use, sw_input_prod, sw_input_site_use, sw_input_site, sw_input_soils_use, sw_input_soils, sw_input_weather_use, sw_input_weather, sw_input_climscen_use, sw_input_climscen, sw_input_climscen_values_use, sw_input_climscen_values, tr_files, tr_prod, tr_site, tr_soil, tr_weather, tr_cloud, tr_input_climPPT, tr_input_climTemp, tr_input_shiftedPPT, tr_input_EvapCoeff, tr_input_TranspCoeff_Code, tr_input_TranspCoeff, tr_input_TranspRegions, tr_input_SnowD, tr_VegetationComposition, param.species_regeneration, no.species_regeneration,
+	save(SWRunInformation, include_YN, labels, sw_input_soillayers, sw_input_treatments_use, sw_input_treatments, sw_input_experimentals_use, sw_input_experimentals, create_experimentals, create_treatments, sw_input_cloud_use, sw_input_cloud, sw_input_prod_use, sw_input_prod, sw_input_site_use, sw_input_site, sw_input_soils_use, sw_input_soils, sw_input_weather_use, sw_input_weather, sw_input_climscen_use, sw_input_climscen, sw_input_climscen_values_use, sw_input_climscen_values, tr_files, tr_prod, tr_site, tr_soil, tr_weather, tr_cloud, tr_input_climPPT, tr_input_climTemp, tr_input_shiftedPPT, tr_input_EvapCoeff, tr_input_TranspCoeff_Code, tr_input_TranspCoeff, tr_input_TranspRegions, tr_input_SnowD, tr_VegetationComposition, tr_CO2, param.species_regeneration, no.species_regeneration,
 		file = file.path(dir.in, datafile.SWRWinputs_preprocessed),
 		compress = FALSE) # No compression for fast access; RDS may be slightly faster, but would require loop over assign(, envir = .GlobalEnv)
 }
@@ -1721,7 +1720,6 @@ do_OneSite <- function(i_sim, i_labels, i_SWRunInformation, i_sw_input_soillayer
         }
       }
     }
-
 		#the monthly ppt-shifts are extracted, but written to the weathersetup input file only at the end of the create section 'copy and make climate scenarios from datafiles', because they are multiplied with any climate change factors
 		ppt_scShift <- rep(1, times=12)
 		if(any(create_treatments=="LookupShiftedPPTScenarios")){
@@ -1730,7 +1728,6 @@ do_OneSite <- function(i_sim, i_labels, i_SWRunInformation, i_sw_input_soillayer
 
 		if(any(create_treatments=="LookupClimatePPTScenarios") | any(create_treatments=="LookupClimateTempScenarios")){
 			clim_scale <- swWeather_MonScalingParams(swRunScenariosData[[1]])[, 1:3]
-
 			#Treatment chunk = climate precipitation scenarios
 			if(any(create_treatments=="LookupClimatePPTScenarios") ) {
 				clim_scale[, 1] <- tr_input_climPPT[st_mo, which(colnames(tr_input_climPPT) == i_sw_input_treatments$LookupClimatePPTScenarios)]
@@ -1739,12 +1736,15 @@ do_OneSite <- function(i_sim, i_labels, i_SWRunInformation, i_sw_input_soillayer
 			if(any(create_treatments=="LookupClimateTempScenarios") ) {
 				clim_scale[, 2] <- clim_scale[, 3] <- tr_input_climTemp[st_mo, which(colnames(tr_input_climTemp) == i_sw_input_treatments$LookupClimateTempScenarios)]
 			}
-
 			swWeather_MonScalingParams(swRunScenariosData[[1]])[, 1:3] <- clim_scale
 
 			rm(clim_scale)
 		}
 
+    # Get CO2 multipliers
+    if(any(create_treatments=="UseCO2Coefficients_Retro") || any(create_treatments=="UseCO2Coefficients_Future")) {
+      source(file.path(dir.code, "R", "CO2Extract.R"))
+    }
 
 		#------4. Step: Information from datafiles are added if flagged 'use' to SoilWat input files
 		#add information from datafile to cloudin
@@ -2696,7 +2696,10 @@ do_OneSite <- function(i_sim, i_labels, i_SWRunInformation, i_sw_input_soillayer
 		}
 
 		if (saveRsoilwatInput)
-			save(swRunScenariosData, i_sw_weatherList, grasses.c3c4ann.fractions, ClimatePerturbationsVals, file = f_sw_input)
+		  if (any(create_treatments == "UseCO2Coefficients_Retro") || any(create_treatments == "UseCO2Coefficients_Future"))
+		    save(swRunScenariosData, i_sw_weatherList, grasses.c3c4ann.fractions, ClimatePerturbationsVals, CO2.Extracted, file = f_sw_input)
+		  else
+			  save(swRunScenariosData, i_sw_weatherList, grasses.c3c4ann.fractions, ClimatePerturbationsVals, file = f_sw_input)
 	}#end if do create runs
 
 	if(makeInputForExperimentalDesign && expN > 0 && length(create_experimentals) > 0) {
@@ -2817,12 +2820,18 @@ do_OneSite <- function(i_sim, i_labels, i_SWRunInformation, i_sw_input_soillayer
           print(paste("Using pre-determined DeltaX =", DeltaX[1]))
         if (DeltaX[2] == 2L)
           swSite_SoilTemperatureConsts(swRunScenariosData[[sc]])["deltaX_Param"] <- DeltaX[1]
-
-				runDataSC <- try(sw_exec(inputData = swRunScenariosData[[sc]],
-											 weatherList = i_sw_weatherList[[scw]],
-									echo = FALSE, quiet = FALSE),
-								silent = TRUE)
-
+        if (any(create_treatments == "UseCO2Coefficients_Retro") || any(create_treatments == "UseCO2Coefficients_Future")) {
+				  runDataSC <- try(sw_exec(inputData = swRunScenariosData[[sc]],
+											             weatherList = i_sw_weatherList[[scw]],
+											             CO2Multipliers = CO2.Extracted,
+									                 echo = FALSE, quiet = FALSE),
+								           				 silent = TRUE)
+        } else {
+					runDataSC <- try(sw_exec(inputData = swRunScenariosData[[sc]],
+                                   weatherList = i_sw_weatherList[[scw]],
+                                   echo = FALSE, quiet = FALSE),
+                           				 silent = TRUE)
+				}
 			} else {
 				runDataSC <- try(sw_exec(inputData = swRunScenariosData[[sc]],
 											 weatherList = i_sw_weatherList[[scw]],
